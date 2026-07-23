@@ -1811,22 +1811,63 @@
             btn.style.borderColor = 'var(--bio-green)';
             btn.style.color = 'var(--bio-green)';
             
-            // Simulate WebAuthn flow
-            setTimeout(() => {
-                if (window.PublicKeyCredential) {
-                    btn.textContent = '✓ Biometric Ready';
+            try {
+                // Initiate authentication with backend
+                const initRes = await fetch('http://localhost:3000/api/auth/initiate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const initData = await initRes.json();
+
+                if (!initData.success) {
+                    throw new Error('Failed to initiate auth');
+                }
+
+                const { sessionId, challenge } = initData;
+
+                // Decode challenge
+                const publicKeyOptions = JSON.parse(atob(challenge));
+
+                // Check if WebAuthn is available
+                if (!window.PublicKeyCredential) {
+                    throw new Error('WebAuthn not supported');
+                }
+
+                // Create credential (simulated for demo)
+                // In production, use: await navigator.credentials.create({ publicKey: publicKeyOptions })
+                
+                // Simulate biometric authentication delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // Verify with backend
+                const verifyRes = await fetch('http://localhost:3000/api/auth/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, credential: 'simulated_credential' })
+                });
+                const verifyData = await verifyRes.json();
+
+                if (verifyData.success) {
+                    btn.textContent = '✓ Authenticated';
                     btn.style.borderColor = 'var(--bio-green)';
                     btn.style.color = 'var(--bio-green)';
+                    
+                    // Store token for future requests
+                    localStorage.setItem('authToken', verifyData.token);
                 } else {
-                    btn.textContent = '⚠ WebAuthn Unavailable';
-                    btn.style.borderColor = 'var(--bio-pink)';
-                    btn.style.color = 'var(--bio-pink)';
+                    throw new Error('Verification failed');
                 }
-            }, 1500);
+
+            } catch (error) {
+                console.error('Auth error:', error);
+                btn.textContent = '⚠ Authentication Failed';
+                btn.style.borderColor = 'var(--bio-pink)';
+                btn.style.color = 'var(--bio-pink)';
+            }
         });
 
         // ==================== CONTACT FORM (with honeypot) ====================
-        document.getElementById('contactForm').addEventListener('submit', (e) => {
+        document.getElementById('contactForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             // Honeypot check
@@ -1837,7 +1878,11 @@
                 return;
             }
             
-            // Rate limiting check (client-side demo)
+            // Get form data
+            const formData = new FormData(e.target);
+            const contactData = Object.fromEntries(formData.entries());
+            
+            // Client-side rate limiting check
             const lastSubmit = localStorage.getItem('lastContactSubmit');
             const now = Date.now();
             if (lastSubmit && now - parseInt(lastSubmit) < 60000) {
@@ -1845,21 +1890,47 @@
                 return;
             }
             
-            localStorage.setItem('lastContactSubmit', now.toString());
-            
             const btn = document.querySelector('.btn-submit');
             btn.textContent = 'Encrypting...';
             btn.style.background = 'var(--bio-purple)';
             
-            setTimeout(() => {
+            try {
+                // Send to backend
+                const response = await fetch('http://localhost:3000/api/contact', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(contactData)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to send message');
+                }
+                
+                // Success
+                localStorage.setItem('lastContactSubmit', now.toString());
                 btn.textContent = '✓ Encrypted & Sent';
                 btn.style.background = 'var(--bio-green)';
+                
+                console.log('Message sent successfully. Ticket ID:', result.ticketId);
+                
                 setTimeout(() => {
                     btn.textContent = 'Encrypt & Send →';
                     btn.style.background = 'var(--bio-cyan)';
                     document.getElementById('contactForm').reset();
                 }, 3000);
-            }, 2000);
+                
+            } catch (error) {
+                console.error('Contact error:', error);
+                btn.textContent = '⚠ Failed to Send';
+                btn.style.background = 'var(--bio-pink)';
+                
+                setTimeout(() => {
+                    btn.textContent = 'Encrypt & Send →';
+                    btn.style.background = 'var(--bio-cyan)';
+                }, 3000);
+            }
         });
 
         // ==================== METRICS ANIMATION ====================
