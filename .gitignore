@@ -1,1 +1,47 @@
-Nothing needs to be added to .gitignore since only a README.md file was added, which is a source/config file and not a build artifact, dependency, or temporary file.
+```gitignore
+# Build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
+dist/
+build/
+target/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+.env
+.env.local
+*.env.*
+
+# Editors/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# System
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Cache directories
+.mypy_cache/
+.pytest_cache/
+.gradle/
+```
