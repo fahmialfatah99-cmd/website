@@ -1181,16 +1181,20 @@
                 <div class="section-label" style="margin-bottom:1.5rem;">// Secure Channel</div>
                 <form class="contact-form" id="contactForm">
                     <div class="form-group">
-                        <label class="form-label">Identifier</label>
-                        <input type="text" class="form-input" placeholder="your@identity.com" required>
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-input" name="name" placeholder="Your name..." required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" name="email" placeholder="your@email.com" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Subject</label>
-                        <input type="text" class="form-input" placeholder="Encryption inquiry..." required>
+                        <input type="text" class="form-input" name="subject" placeholder="Encryption inquiry...">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Message</label>
-                        <textarea class="form-input form-textarea" placeholder="Transmit your message..." required></textarea>
+                        <textarea class="form-input form-textarea" name="message" placeholder="Transmit your message..." required></textarea>
                     </div>
                     <!-- Honeypot field -->
                     <div class="hp-field" aria-hidden="true">
