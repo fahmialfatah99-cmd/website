@@ -3,17 +3,84 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const helmet = require('helmet');
+const { xss } = require('express-xss-sanitizer');
+const hpp = require('hpp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+
+// Security middleware
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "http://localhost:*"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"]
+        }
+    },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    }
+}));
 
 // Middleware
 app.use(cors({
     origin: ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5500', 'http://localhost:3000'],
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(xss());
+app.use(hpp());
 app.use(express.static(require('path').join(__dirname, '..')));
+
+// Encryption utility functions
+const encrypt = (text) => {
+    try {
+        const iv = crypto.randomBytes(16);
+        const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+        let encrypted = cipher.update(JSON.stringify(text), 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        const authTag = cipher.getAuthTag().toString('hex');
+        return {
+            encryptedData: encrypted,
+            iv: iv.toString('hex'),
+            authTag: authTag
+        };
+    } catch (error) {
+        console.error('Encryption error:', error);
+        throw new Error('Failed to encrypt data');
+    }
+};
+
+const decrypt = (encryptedData, iv, authTag) => {
+    try {
+        const decipher = crypto.createDecipheriv(
+            'aes-256-gcm',
+            Buffer.from(ENCRYPTION_KEY, 'hex'),
+            Buffer.from(iv, 'hex')
+        );
+        decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+        let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return JSON.parse(decrypted);
+    } catch (error) {
+        console.error('Decryption error:', error);
+        throw new Error('Failed to decrypt data');
+    }
+};
 
 // In-memory storage (replace with database in production)
 const contacts = [];
@@ -132,18 +199,21 @@ app.post('/api/vault', (req, res) => {
             return res.status(400).json({ error: 'Name and type are required' });
         }
 
+        // Encrypt sensitive data before storing
+        const encryptedData = encrypt(data);
+
         const item = {
             id: uuidv4(),
             name,
             type,
-            data, // In production, this should be encrypted
+            encryptedData, // Store encrypted data
             createdAt: new Date().toISOString(),
             status: 'secured'
         };
 
         vaultItems.set(item.id, item);
 
-        console.log(`🔒 Vault item created: ${name}`);
+        console.log(`🔒 Vault item created and encrypted: ${name}`);
 
         res.status(201).json({ 
             success: true, 
@@ -154,6 +224,54 @@ app.post('/api/vault', (req, res) => {
         console.error('Vault error:', error);
         res.status(500).json({ error: 'Failed to create vault item' });
     }
+});
+
+// Get specific vault item (with decryption)
+app.get('/api/vault/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const item = vaultItems.get(id);
+
+        if (!item) {
+            return res.status(404).json({ error: 'Vault item not found' });
+        }
+
+        // Decrypt data for authorized access
+        const decryptedData = decrypt(
+            item.encryptedData.encryptedData,
+            item.encryptedData.iv,
+            item.encryptedData.authTag
+        );
+
+        res.json({
+            success: true,
+            item: {
+                id: item.id,
+                name: item.name,
+                type: item.type,
+                data: decryptedData,
+                createdAt: item.createdAt,
+                status: item.status
+            }
+        });
+    } catch (error) {
+        console.error('Vault retrieval error:', error);
+        res.status(500).json({ error: 'Failed to retrieve vault item' });
+    }
+});
+
+// Delete vault item
+app.delete('/api/vault/:id', (req, res) => {
+    const { id } = req.params;
+    
+    if (!vaultItems.has(id)) {
+        return res.status(404).json({ error: 'Vault item not found' });
+    }
+
+    vaultItems.delete(id);
+    console.log(`🗑️ Vault item deleted: ${id}`);
+    
+    res.json({ success: true, message: 'Vault item securely deleted' });
 });
 
 // Authentication endpoints
@@ -205,6 +323,7 @@ app.post('/api/auth/verify', (req, res) => {
         // Update session status
         session.status = 'authenticated';
         session.authenticatedAt = new Date().toISOString();
+        session.token = `auth_${uuidv4()}`; // Generate secure token
         authSessions.set(sessionId, session);
 
         console.log(`✓ Auth verified for session: ${sessionId}`);
@@ -212,7 +331,7 @@ app.post('/api/auth/verify', (req, res) => {
         res.json({
             success: true,
             authenticated: true,
-            token: `auth_${uuidv4()}`,
+            token: session.token,
             expiresIn: 3600
         });
 
@@ -222,9 +341,61 @@ app.post('/api/auth/verify', (req, res) => {
     }
 });
 
-// Get all contacts (admin endpoint - add auth in production)
-app.get('/api/admin/contacts', (req, res) => {
-    // In production, verify admin token here
+// Authentication middleware
+const authMiddleware = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Access denied. No token provided.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Find session by token
+    let foundSession = null;
+    for (const [sessionId, session] of authSessions.entries()) {
+        if (session.token === token && session.status === 'authenticated') {
+            foundSession = session;
+            break;
+        }
+    }
+
+    if (!foundSession) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    // Check token expiration (1 hour)
+    const tokenAge = Date.now() - new Date(foundSession.authenticatedAt).getTime();
+    if (tokenAge > 3600000) { // 1 hour in ms
+        foundSession.status = 'expired';
+        authSessions.set(foundSession.id, foundSession);
+        return res.status(401).json({ error: 'Token expired' });
+    }
+
+    req.user = { sessionId: foundSession.id };
+    next();
+};
+
+// Admin middleware
+const adminMiddleware = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Access denied. No token provided.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const adminToken = process.env.ADMIN_TOKEN;
+
+    if (!adminToken || token !== adminToken) {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    next();
+};
+
+// Get all contacts (admin endpoint - protected)
+app.get('/api/admin/contacts', adminMiddleware, (req, res) => {
     res.json({ 
         contacts: contacts.map(c => ({
             id: c.id,
@@ -237,8 +408,8 @@ app.get('/api/admin/contacts', (req, res) => {
     });
 });
 
-// Delete contact (admin endpoint)
-app.delete('/api/admin/contacts/:id', (req, res) => {
+// Delete contact (admin endpoint - protected)
+app.delete('/api/admin/contacts/:id', adminMiddleware, (req, res) => {
     const { id } = req.params;
     const index = contacts.findIndex(c => c.id === id);
     
