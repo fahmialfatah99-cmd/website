@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const helmet = require('helmet');
 const { xss } = require('express-xss-sanitizer');
 const hpp = require('hpp');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,7 +45,7 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(xss());
 app.use(hpp());
-app.use(express.static(require('path').join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '..')));
 
 // Encryption utility functions
 const encrypt = (text) => {
