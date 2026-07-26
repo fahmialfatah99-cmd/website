@@ -1,3 +1,8 @@
+/*
+ * αlfa Backend Server - Secure Personal Vault API
+ * Copyright © 2024 Fahmi Alfatah. All Rights Reserved.
+ */
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
