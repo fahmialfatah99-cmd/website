@@ -7,10 +7,10 @@
     "dev": "node --watch server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["vault", "encryption", "security", "api"],
+  "author": "Fahmi Alfatah",
   "license": "ISC",
-  "description": "",
+  "description": "Secure Personal Vault API with AES-256-GCM Encryption by Fahmi Alfatah",
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

@@ -1,5 +1,8 @@
 # αlfa Backend Server
 
+> **Secure Personal Vault API dengan Enkripsi AES-256-GCM**  
+> Copyright © 2024 Fahmi Alfatah. All Rights Reserved.
+
 Backend API untuk αlfa Secure Personal Vault dengan fitur keamanan tingkat lanjut.
 
 ## ✨ Fitur Utama
@@ -234,3 +237,9 @@ API menggunakan standar HTTP status codes:
 ## 📄 License
 
 ISC
+
+---
+
+**Copyright © 2024 Fahmi Alfatah. All Rights Reserved.**
+
+Dibuat dengan ❤️ untuk keamanan data Anda.
