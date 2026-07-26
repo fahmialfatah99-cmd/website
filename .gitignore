@@ -2,12 +2,15 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment
 .env
+.env.local
+.env.*
 
-# Build artifacts
-package-lock.json
-
-# Logs
+# Logs and temp files
 *.log
+*.tmp
+
+# Editors
+.vscode/
 ```
