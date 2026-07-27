@@ -1,1 +1,4 @@
-Nothing should be ignored since only a source file (backend/server.js) was modified and there are no build artifacts, dependencies, or temporary files in the changes.
+```gitignore
+# No build artifacts, dependencies, or temporary files detected in changes
+# Only source/config files present
+```
