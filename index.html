@@ -36,6 +36,26 @@
 
         html {
             scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* Global scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--obsidian);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 204, 0.15);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 204, 0.3);
         }
 
         body {
@@ -44,6 +64,19 @@
             font-family: 'Space Grotesk', sans-serif;
             overflow-x: hidden;
             cursor: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Mobile touch devices - hide custom cursor */
+        @media (hover: none) and (pointer: coarse) {
+            body {
+                cursor: auto;
+            }
+            .cursor-dot,
+            .cursor-ring {
+                display: none;
+            }
         }
 
         /* Custom Cursor */
@@ -189,6 +222,58 @@
             padding: 8rem 3rem 3rem;
         }
 
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .nav-container {
+                padding: 1rem 1.5rem;
+            }
+            
+            .nav-links {
+                display: none;
+            }
+            
+            .hero {
+                padding: 6rem 1.5rem 2rem;
+            }
+            
+            .hero-title {
+                letter-spacing: -2px;
+            }
+            
+            .hero-title .line2 {
+                margin-left: 2rem;
+            }
+            
+            .section {
+                padding: 4rem 1.5rem;
+            }
+            
+            .bento-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .card-terminal, .card-vault, .card-auth, .card-skills, .card-3d, .card-contact, .card-metrics {
+                grid-column: 1 / -1 !important;
+                grid-row: auto !important;
+            }
+            
+            .btn-primary, .btn-ghost {
+                padding: 0.875rem 1.5rem;
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-title {
+                font-size: 2.5rem;
+            }
+            
+            .section-title {
+                font-size: 1.75rem;
+            }
+        }
+
         .hero-bg-canvas {
             position: absolute;
             top: 0;
@@ -278,11 +363,39 @@
             box-shadow: var(--brutal-shadow);
             transition: all 0.2s;
             text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
         }
 
         .btn-primary:hover {
             box-shadow: var(--brutal-shadow-hover);
             transform: translate(-2px, -2px);
+            filter: brightness(1.05);
+        }
+
+        /* Mobile touch - disable hover shine effect */
+        @media (hover: none) {
+            .btn-primary::before {
+                display: none;
+            }
+            .btn-primary:hover {
+                transform: none;
+            }
         }
 
         .btn-ghost {
@@ -370,6 +483,15 @@
         .bento-card:hover {
             border-color: rgba(0, 255, 204, 0.3);
             transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 255, 204, 0.08);
+        }
+
+        /* Mobile touch - disable hover effects */
+        @media (hover: none) {
+            .bento-card:hover {
+                transform: none;
+                box-shadow: none;
+            }
         }
 
         /* Card positions - asymmetric */
@@ -422,6 +544,24 @@
             line-height: 1.8;
             overflow-y: auto;
             padding: 0.5rem 0;
+        }
+
+        /* Custom scrollbar for terminal */
+        .terminal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .terminal-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .terminal-body::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 204, 0.2);
+            border-radius: 3px;
+        }
+
+        .terminal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 204, 0.4);
         }
 
         .terminal-line {
@@ -711,11 +851,18 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.8rem;
             outline: none;
-            transition: border-color 0.3s;
+            transition: all 0.3s;
+            border-radius: 2px;
         }
 
         .form-input:focus {
             border-color: var(--bio-cyan);
+            background: rgba(0, 255, 204, 0.02);
+            box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.05);
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.2);
         }
 
         .form-textarea {
@@ -1005,11 +1152,25 @@
             opacity: 0;
             transform: translateY(30px);
             transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: opacity, transform;
         }
 
         .reveal.visible {
             opacity: 1;
             transform: translateY(0);
+        }
+
+        /* Reduced motion for accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .reveal {
+                opacity: 1;
+                transform: none;
+            }
         }
 
         /* Scanline effect */
