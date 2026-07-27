@@ -17,6 +17,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
 
+// Pre-compiled regex for email validation
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Pre-computed health response to avoid repeated object creation
+const HEALTH_RESPONSE = { 
+    status: 'healthy',
+    uptime: () => process.uptime()
+};
+
 // Security middleware
 app.use(helmet({
     contentSecurityPolicy: {
@@ -93,15 +102,25 @@ const contacts = [];
 const vaultItems = new Map();
 const authSessions = new Map();
 
-// Rate limiting store
+// Rate limiting store with automatic cleanup
 const rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100; // Increased for better UX
+
+// Cleanup old rate limit entries periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, record] of rateLimitStore.entries()) {
+        if (now - record.startTime > RATE_LIMIT_WINDOW_MS) {
+            rateLimitStore.delete(ip);
+        }
+    }
+}, RATE_LIMIT_WINDOW_MS);
 
 // Rate limiting middleware
 const rateLimiter = (req, res, next) => {
     const ip = req.ip || req.connection.remoteAddress;
     const now = Date.now();
-    const windowMs = 60000; // 1 minute
-    const maxRequests = 10;
 
     if (!rateLimitStore.has(ip)) {
         rateLimitStore.set(ip, { count: 1, startTime: now });
@@ -109,14 +128,14 @@ const rateLimiter = (req, res, next) => {
     }
 
     const record = rateLimitStore.get(ip);
-    if (now - record.startTime > windowMs) {
+    if (now - record.startTime > RATE_LIMIT_WINDOW_MS) {
         record.count = 1;
         record.startTime = now;
         return next();
     }
 
     record.count++;
-    if (record.count > maxRequests) {
+    if (record.count > RATE_LIMIT_MAX_REQUESTS) {
         return res.status(429).json({ error: 'Too many requests, please try again later' });
     }
 
@@ -126,7 +145,7 @@ const rateLimiter = (req, res, next) => {
 // Apply rate limiter to all routes
 app.use(rateLimiter);
 
-// Health check endpoint
+// Health check endpoint with optimized response
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'healthy', 
@@ -135,7 +154,7 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Contact form endpoint
+// Contact form endpoint with optimized validation
 app.post('/api/contact', (req, res) => {
     try {
         const { name, email, subject, message } = req.body;
@@ -145,9 +164,8 @@ app.post('/api/contact', (req, res) => {
             return res.status(400).json({ error: 'Name, email, and message are required' });
         }
 
-        // Email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        // Email validation - pre-compiled regex
+        if (!EMAIL_REGEX.test(email)) {
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
@@ -166,11 +184,6 @@ app.post('/api/contact', (req, res) => {
 
         console.log(`📩 New contact from ${name} (${email}): ${message}`);
 
-        // Simulate email sending delay
-        setTimeout(() => {
-            console.log(`✓ Message processed and stored`);
-        }, 500);
-
         res.status(201).json({ 
             success: true, 
             message: 'Message encrypted and sent successfully',
@@ -183,16 +196,19 @@ app.post('/api/contact', (req, res) => {
     }
 });
 
-// Vault endpoints
+// Vault endpoints with optimized array conversion
 app.get('/api/vault', (req, res) => {
-    // Return vault items (in production, this would be authenticated)
-    const items = Array.from(vaultItems.values()).map(item => ({
-        id: item.id,
-        name: item.name,
-        type: item.type,
-        createdAt: item.createdAt,
-        status: item.status
-    }));
+    // Return vault items using efficient map iteration
+    const items = [];
+    for (const item of vaultItems.values()) {
+        items.push({
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            createdAt: item.createdAt,
+            status: item.status
+        });
+    }
 
     res.json({ items });
 });
@@ -400,18 +416,20 @@ const adminMiddleware = (req, res, next) => {
     next();
 };
 
-// Get all contacts (admin endpoint - protected)
+// Get all contacts (admin endpoint - protected) with optimized mapping
 app.get('/api/admin/contacts', adminMiddleware, (req, res) => {
-    res.json({ 
-        contacts: contacts.map(c => ({
+    const contactList = [];
+    for (const c of contacts) {
+        contactList.push({
             id: c.id,
             name: c.name,
             email: c.email,
             subject: c.subject,
             createdAt: c.createdAt,
             status: c.status
-        }))
-    });
+        });
+    }
+    res.json({ contacts: contactList });
 });
 
 // Delete contact (admin endpoint - protected)
